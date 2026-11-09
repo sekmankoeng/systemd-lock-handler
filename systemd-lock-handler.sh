@@ -57,6 +57,42 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
+run_slh() {
+    if [[ $# -ne 1 ]]; then
+        echo "ERROR: run_slh requires exactly one prefix argument" >&2
+        return 1
+    fi
+
+    local script_dir="/usr/local/bin/slh.d"
+    if [[ ! -d "${script_dir}" ]]; then
+        echo "ERROR: directory ${script_dir} does not exist" >&2
+        return 1
+    fi
+
+    local action="$1"
+    local prefix="${action:0:1}"
+    local glob_pattern="${script_dir}/${prefix}[0-9][0-9]-*.sh"
+    shopt -s nullglob
+    local scripts=(${glob_pattern})
+    shopt -u nullglob
+
+    if [[ ${#scripts[@]} -eq 0 ]]; then
+        echo "INFO: No scripts matched prefix [${prefix}] in ${script_dir}"
+        return 0
+    fi
+
+    echo "INFO: Found ${#scripts[@]} scripts, prefix=[${prefix}], run in lexical order:"
+
+    local scr
+    for scr in "${scripts[@]}"; do
+        echo -e "\n=== Running: ${scr} ==="
+        "${scr}" "${action}"
+    done
+
+    echo -e "\nINFO: run_slh prefix [${prefix}] finished all jobs"
+    return 0
+}
+
 # ========== 睡眠抑制锁：启动时一次性持有，常驻（本方案核心） ==========
 # 说明：采用常驻delay inhibitor，休眠到来时logind一定会等待本锁释放；
 # 若D-Bus信号丢失，依赖logind的InhibitDelayMaxSec超时兜底，属于上游异常边界
@@ -152,10 +188,6 @@ while true; do
         case "${evt}" in
             LOCK)
                 echo ">> Session(${SESSION_ID}): Lock signal received"
-                if is_locked; then
-                    echo "Session(${SESSION_ID}): Skip, already locked (LockedHint=yes)"
-                    continue
-                fi
                 LOCK_NOW=$(date +%s%3N)
                 if (( LOCK_NOW - LAST_LOCK_TS < DEBOUNCE_MS )); then
                     echo "Session(${SESSION_ID}): Debounce skip lock event"
@@ -163,15 +195,11 @@ while true; do
                 fi
                 LAST_LOCK_TS=${LOCK_NOW}
                 echo ">> Session(${SESSION_ID}): Start pre-lock actions"
-                /usr/local/bin/lockscreen.sh &
+                run_slh "LOCK"
                 echo ">> Session(${SESSION_ID}): Lock signal done"
                 ;;
             UNLOCK)
                 echo ">> Session(${SESSION_ID}): Unlock signal received"
-                if ! is_locked; then
-                    echo "Session(${SESSION_ID}): Skip, already unlocked (LockedHint=no)"
-                    continue
-                fi
                 UNLOCK_NOW=$(date +%s%3N)
                 if (( UNLOCK_NOW - LAST_UNLOCK_TS < DEBOUNCE_MS )); then
                     echo "Session(${SESSION_ID}): Debounce skip unlock event"
@@ -179,6 +207,7 @@ while true; do
                 fi
                 LAST_UNLOCK_TS=${UNLOCK_NOW}
                 echo ">> Session(${SESSION_ID}): Start post-unlock actions"
+                run_slh "UNLOCK"
                 echo ">> Session(${SESSION_ID}): Unlock signal done"
                 ;;
             SLEEP)
@@ -196,9 +225,7 @@ while true; do
                 fi
 
                 echo ">> System-global: Start pre-sleep actions"
-                /usr/local/bin/lockscreen.sh &
-
-                # 轮询等待锁屏完成，原生bash整数运算
+                run_slh "SLEEP"
                 ELAPSED=0
                 while ! is_locked && [ $ELAPSED -lt $WAIT_MAX ]; do
                     sleep "$(awk -v p="$POLL_INTERVAL" 'BEGIN{print p / 1000}')"
@@ -210,7 +237,8 @@ while true; do
                 else
                     echo "WARNING: Timeout waiting for LockedHint, release inhibitor anyway" >&2
                 fi
-                # 本次休眠放行：释放抑制锁
+
+                # Now system will sleep/suspend after releasing the inhibitor
                 if [[ -n "${PID_INHIBIT}" ]]; then
                     kill "${PID_INHIBIT}" 2>/dev/null || true
                     wait "${PID_INHIBIT}" 2>/dev/null || true
@@ -228,7 +256,8 @@ while true; do
                 LAST_RESUME_TS=${CUR_RESUME_TS}
 
                 echo ">> System-global: Start post-resume actions"
-                # 唤醒完成后，重新拉起常驻抑制锁，等待下一次休眠
+                run_slh "RESUME"
+                # Reacquire the inhibitor after system wakeup/resume
                 hold_inhibitor
                 echo "Re-acquired persistent sleep inhibitor after wakeup, PID_INHIBIT=${PID_INHIBIT}"
                 echo ">> System-global: PrepareForSleep(false) signal done"
