@@ -1,0 +1,16 @@
+[Unit]
+Description=systemd-lock-handler shell implementation
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/systemd-lock-handler.sh
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
+
