@@ -71,7 +71,7 @@ run_slh() {
 
     local action="$1"
     local prefix="${action:0:1}"
-    local glob_pattern="${script_dir}/${prefix}[0-9][0-9]-*.sh"
+    local glob_pattern="${script_dir}/${prefix}[0-9][0-9]-*"
     shopt -s nullglob
     local scripts=(${glob_pattern})
     shopt -u nullglob

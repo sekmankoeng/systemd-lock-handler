@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 # Configuration
-SRC_DIR="./"
+SRC_DIR="."
 USER_UNIT_DIR="${HOME}/.config/systemd/user"
 BIN_DIR="/usr/local/bin"
 
-SERVICE_FILE="systemd-lock-handler.service"
-SCRIPT_FILE="systemd-lock-handler.sh"
-LOCKSCREEN_FILE="lockscreen.sh"
+SLH_SERVICE_FILE="systemd-lock-handler.service"
+SLH_SCRIPT_FILE="systemd-lock-handler.sh"
+LOCKSCREEN_FILE="L99-lockscreen"
 # Check if required source files exist
 missing=()
 check_file() {
@@ -17,8 +16,8 @@ check_file() {
     missing+=("${f}")
   fi
 }
-check_file "${SERVICE_FILE}"
-check_file "${SCRIPT_FILE}"
+check_file "${SLH_SERVICE_FILE}"
+check_file "${SLH_SCRIPT_FILE}"
 
 if [[ ${#missing[@]} -gt 0 ]]; then
   echo "ERROR: Missing source files in current directory:"
@@ -32,16 +31,20 @@ mkdir -p "${USER_UNIT_DIR}"
 
 # Copy user systemd units (no root required)
 echo "==> Copy user systemd units"
-cp -vn "${SRC_DIR}${SERVICE_FILE}" "${USER_UNIT_DIR}/"
+cp -vn "${SRC_DIR}/${SLH_SERVICE_FILE}" "${USER_UNIT_DIR}/"
 
 # Copy executable scripts to /usr/local/bin (requires sudo)
 echo "==> Copy scripts to ${BIN_DIR} (requires sudo)"
-sudo cp -vn "${SRC_DIR}${SCRIPT_FILE}" "${BIN_DIR}/"
-sudo cp -vn "${SRC_DIR}${LOCKSCREEN_FILE}" "${BIN_DIR}/"
-# Set executable permissions
-echo "==> Set executable permission"
-sudo chmod +x "${BIN_DIR}/${SCRIPT_FILE}"
-sudo chmod +x "${BIN_DIR}/${LOCKSCREEN_FILE}"
+sudo cp -vn "${SRC_DIR}/${SLH_SCRIPT_FILE}" "${BIN_DIR}/"
+sudo chmod +x "${BIN_DIR}/${SLH_SCRIPT_FILE}"
+
+sudo mkdir -p "${BIN_DIR}/slh.d/"
+sudo cp -vn "${SRC_DIR}/slh.d/${LOCKSCREEN_FILE}" "${BIN_DIR}/slh.d/"
+sudo chmod -R +x "${BIN_DIR}/slh.d/"
+cd "${BIN_DIR}/slh.d/"
+sudo ln -s "${LOCKSCREEN_FILE}" "U01-lockscreen"
+sudo ln -s "${LOCKSCREEN_FILE}" "S99-lockscreen"
+
 echo
 echo "✅ Installation complete!"
 echo "Run 'systemctl --user daemon-reload' manually after installation."
