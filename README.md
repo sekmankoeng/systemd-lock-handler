@@ -9,7 +9,7 @@
 It works with an idle management daemon (e.g., swayidle) as the frontend to implement system idle timeout lock and suspend functions.
 
 ## ✨ Features
-- Listen to logind D-Bus signals: `Lock`, `Unlock`, `PrepareForSleep(true/false)`
+- Listen to logind D-Bus signals: `Lock`, `Unlock`, `PrepareForSleep(true): Sleep`, `PrepareForSleep(false): Resume`
 - Long-held sleep inhibitor (`delay` mode) to guarantee pre-suspend workflows finish before suspend
 - SysVinit-like style for easy custom signal event hooks, simple implementation.
 - Pure bash, no extra dependencies required (only awk, systemd, dbus)
@@ -37,12 +37,10 @@ It works with an idle management daemon (e.g., swayidle) as the frontend to impl
 │ L99-action / U01-action / S99-action / R01-action  │
 └────────────────────────────────────────────────────┘
 ```
-You do **not** need to handle D-Bus or inhibitor logic in your own scripts. Just hook actions in your SysVinit-like scripts.
+You do **not** need to handle D-Bus or inhibitor logic in your own scripts. Just define the hook actions in your SysVinit-like scripts.
 
 ## 📋 Requirements
 - systemd: loginctl/busctl/systemctl
-- awk
-- dbus
 
 ## 🚀 Installation
 ```bash
@@ -50,7 +48,8 @@ cd systemd-lock-handler/
 chmod +x setup.sh
 ./setup.sh
 ```
-## Usage
+
+## 🚀 Usage
 ```bash
 # 1. Reload systemd user manager:
 systemctl --user daemon-reload
@@ -72,9 +71,10 @@ systemd-inhibit
 1. Script naming rule: `[prefix]+[two-digit number]-scriptname`
 2. Prefix indicates execution scenario: L: Lock, U: Unlock, S: Sleep, R: Resume
 3. Two-digit number defines execution order within the scenario, range `01–99`, executed in ascending order
-4. Symbolic links can be created under the `slh.d/` sync directory to customize script execution order
+4. Symbolic links can be created under the `slh.d/` directory to customize script execution order
 
-### example: L99-lockscreen
+### Example:
+1.`vim slh.d/L99-lockscreen`
 ```sh
 #!/usr/bin/env bash
 set -euo pipefail
@@ -91,13 +91,12 @@ lock() {
         echo "$0(${SESSION_ID}): Skip, already locked (LockedHint=yes)"
         return 0
     fi
-
+    # `hyprlock -q` could be replace to your lockscreen tool
     systemd-run --user --scope hyprlock -q
     ret=$?
 
     if [[ $ret -eq 0 ]]; then
         echo "$0(${SESSION_ID}): Unlock successful"
-        notify-send -a "BreakingBad" -i /home/swq/.config/hypr/images/avatar/heisenberg.png "✅ 登录成功" "You're goddamn right."
     fi
 }
 
@@ -127,3 +126,15 @@ case "$1" in
         ;;
 esac
 ```
+2.Define execution order for other signal events
+```
+cd slh.d/
+
+# Set lockscreen hook order for SLEEP signal events.
+ln -s L99-lockscreen S99-lockscreen
+
+# Set lockscreen hook order for UNLOCK signal events.
+ln -s L99-lockscreen U01-lockscreen
+```
+> [!NOTE]
+> `L99-lockscreen` has defined the handling actions for SLEEP and UNLOCK signal events respectively.
