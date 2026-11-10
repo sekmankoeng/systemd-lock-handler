@@ -42,7 +42,7 @@ You do **not** need to handle D-Bus or inhibitor logic in your own scripts. Just
 ## 📋 Requirements
 - systemd: loginctl/busctl/systemctl
 
-## 🚀 Installation
+## 🔨 Installation
 ```bash
 cd systemd-lock-handler/
 chmod +x setup.sh
