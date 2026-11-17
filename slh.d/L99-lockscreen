@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SESSION_ID="${XDG_SESSION_ID:?}"
-
+SCREENSHOT="$HOME/Pictures/Screenshots/latest.png"
 # Check LockedHint
 is_locked() {
     [[ $(loginctl show-session "$SESSION_ID" -p LockedHint --value) == "yes" ]]
@@ -14,12 +14,21 @@ lock() {
         return 0
     fi
 
+    ELAPSED=0
+    while [ $ELAPSED -lt 500 ]; do
+        if [[ -f "$SCREENSHOT" ]] && { head -c4 "$SCREENSHOT" | grep -q $'\x89PNG'; }; then
+            break
+        fi
+        sleep 0.01
+        ELAPSED=$((ELAPSED+10))
+    done
+
     systemd-run --user --scope hyprlock -q
     ret=$?
-
     if [[ $ret -eq 0 ]]; then
         echo "$0(${SESSION_ID}): Unlock successful"
     fi
+    loginctl unlock-session
 }
 
 unlock() {

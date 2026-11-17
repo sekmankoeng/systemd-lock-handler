@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SESSION_ID="${XDG_SESSION_ID:?}"
+SCREENSHOT="$HOME/Pictures/Screenshots/latest.png"
+
+lock() {
+    rm -f "$SCREENSHOT"
+    niri msg action screenshot-screen --path "$SCREENSHOT"
+    ret=$?
+    if [[ $ret -eq 0 ]]; then
+        echo "$0(${SESSION_ID}): Screenshot successful"
+    fi
+}
+
+unlock() {
+    rm -f "$SCREENSHOT"
+    # There is NOTHING left to do
+}
+
+case "$1" in
+    LOCK)
+        lock &
+        ;;
+    UNLOCK)
+        unlock &
+        ;;
+    SLEEP)
+        lock &
+        ;;
+    RESUME)
+        unlock &
+        ;;
+    *)
+        ;;
+esac
