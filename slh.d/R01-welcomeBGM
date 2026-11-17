@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+BGM_PATH="${HOME}/Videos/BreakingBad/BreakingBad-BGM.mp3"
+SESSION_ID="${XDG_SESSION_ID:?}"
+
+# Check LockedHint
+is_locked() {
+    [[ $(loginctl show-session "$SESSION_ID" -p LockedHint --value) == "yes" ]]
+}
+welcomeBGM() {
+    mpv "${BGM_PATH}" &>/dev/null
+}
+
+case "$1" in
+    LOCK)
+        ;;
+    UNLOCK)
+        ;;
+    SLEEP)
+        ;;
+    RESUME)
+        welcomeBGM &
+        ;;
+    *)
+        ;;
+esac
