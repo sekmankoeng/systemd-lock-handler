@@ -7,7 +7,6 @@ BIN_DIR="/usr/local/bin"
 
 SLH_SERVICE_FILE="systemd-lock-handler.service"
 SLH_SCRIPT_FILE="systemd-lock-handler.sh"
-LOCKSCREEN_FILE="L99-lockscreen"
 # Check if required source files exist
 missing=()
 check_file() {
@@ -38,12 +37,8 @@ echo "==> Copy scripts to ${BIN_DIR} (requires sudo)"
 sudo cp -vn "${SRC_DIR}/${SLH_SCRIPT_FILE}" "${BIN_DIR}/"
 sudo chmod +x "${BIN_DIR}/${SLH_SCRIPT_FILE}"
 
-sudo mkdir -p "${BIN_DIR}/slh.d/"
-sudo cp -vn "${SRC_DIR}/slh.d/${LOCKSCREEN_FILE}" "${BIN_DIR}/slh.d/"
+sudo cp -avn "${SRC_DIR}/slh.d" "${BIN_DIR}/"
 sudo chmod -R +x "${BIN_DIR}/slh.d/"
-cd "${BIN_DIR}/slh.d/"
-sudo ln -s "${LOCKSCREEN_FILE}" "U01-lockscreen"
-sudo ln -s "${LOCKSCREEN_FILE}" "S99-lockscreen"
 
 echo
 echo "✅ Installation complete!"
